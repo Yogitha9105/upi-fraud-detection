@@ -7,15 +7,50 @@ model = pickle.load(open("model.pkl", "rb"))
 columns = pickle.load(open("columns.pkl", "rb"))
 accuracy = pickle.load(open("accuracy.pkl", "rb"))
 
-# UI Config
+# Page config
 st.set_page_config(page_title="UPI Fraud Detection", layout="wide")
 
+# Title
 st.title("💳 UPI Fraud Detection System")
 
-st.markdown("### 📊 Model Accuracy")
+# Accuracy
+st.subheader("📊 Model Accuracy")
 st.success(f"Accuracy: {accuracy:.2f}")
 
-uploaded_file = st.file_uploader("Upload transaction CSV file")
+# =========================
+# 🔹 SIDEBAR
+# =========================
+st.sidebar.title("💳 Transaction Checker")
+st.sidebar.header("🔍 Manual Transaction Input")
+
+amount = st.sidebar.number_input("Amount", 0.0)
+oldbalanceOrg = st.sidebar.number_input("Old Balance", 0.0)
+newbalanceOrig = st.sidebar.number_input("New Balance", 0.0)
+
+if st.sidebar.button("Predict Fraud"):
+    input_data = pd.DataFrame({
+        'amount': [amount],
+        'oldbalanceOrg': [oldbalanceOrg],
+        'newbalanceOrig': [newbalanceOrig]
+    })
+
+    input_data = pd.get_dummies(input_data)
+    input_data = input_data.reindex(columns=columns, fill_value=0)
+
+    pred = model.predict(input_data)[0]
+    prob = model.predict_proba(input_data)[0][1]
+
+    if pred == 1:
+        st.sidebar.error(f"⚠️ High Risk Transaction\nFraud Probability: {prob:.2f}")
+    else:
+        st.sidebar.success(f"✅ Low Risk Transaction\nFraud Probability: {prob:.2f}")
+
+# =========================
+# 🔹 CSV UPLOAD
+# =========================
+st.subheader("📁 Upload transaction CSV file")
+
+uploaded_file = st.file_uploader("Upload CSV")
 
 if uploaded_file:
     data = pd.read_csv(uploaded_file)
@@ -23,7 +58,7 @@ if uploaded_file:
     st.subheader("📄 Uploaded Data")
     st.dataframe(data.head())
 
-    # Drop unwanted
+    # Drop unnecessary columns
     if 'nameOrig' in data.columns:
         data = data.drop(['nameOrig', 'nameDest'], axis=1)
 
@@ -43,7 +78,7 @@ if uploaded_file:
     st.subheader("🔍 Prediction Results")
     st.dataframe(data)
 
-    # Summary metrics
+    # Summary
     total = len(data)
     fraud = (predictions == 1).sum()
     normal = (predictions == 0).sum()
@@ -53,6 +88,18 @@ if uploaded_file:
     col2.metric("Fraud Detected", fraud)
     col3.metric("Normal Transactions", normal)
 
+    # Alert
+    if fraud > 0:
+        st.error(f"⚠️ {fraud} Fraud Transactions Detected!")
+    else:
+        st.success("✅ No Fraud Detected")
+
     # Chart
     st.subheader("📊 Fraud vs Normal")
     st.bar_chart(data['Fraud Prediction'].value_counts())
+
+# =========================
+# 🔹 FOOTER
+# =========================
+st.markdown("---")
+st.markdown("🚀 Developed by Yogitha | AI/ML Project")
